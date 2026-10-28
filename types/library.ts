@@ -1,0 +1,1 @@
+export type Library = { id: string; name: string; sido: string; sigungu: string; address: string; lat: number; lng: number; phone?: string; hours?: string; seatsAvailable?: number; seatsTotal?: number; status?: string };
