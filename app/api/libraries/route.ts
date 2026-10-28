@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server';
-export const revalidate = 300;
+import { getLibraries } from '@/lib/library-api';
+export const dynamic = 'force-dynamic';
 export async function GET() {
- // 공공데이터포털의 세부 operation/path 및 response schema 확인 전에는 API 호출을 만들지 않습니다.
- return NextResponse.json({ mode: 'sample', message: 'API 명세 확인이 필요합니다. 현재 화면은 샘플 데이터로 표시 중입니다.', updatedAt: null }, { status: 501 });
+ try {
+  const data = await getLibraries();
+  return NextResponse.json({ mode: 'live', ...data }, { headers: { 'Cache-Control': 's-maxage=300, stale-while-revalidate=600' } });
+ } catch (error) {
+  const message = error instanceof Error ? error.message : 'API_UNKNOWN_ERROR';
+  const resultCode = /^API_(K\d{2})/.exec(message)?.[1];
+  const status = message === 'API_KEY_MISSING' || resultCode === 'K21' ? 503 : resultCode === 'K22' ? 429 : resultCode === 'K20' || resultCode === 'K30' || resultCode === 'K31' ? 403 : 502;
+  const userMessage = message === 'API_KEY_MISSING' ? '서버에 DATA_GO_KR_SERVICE_KEY 환경변수가 없습니다.' : resultCode === 'K20' || resultCode === 'K30' || resultCode === 'K31' ? 'API 인증키와 활용 신청 상태를 확인해 주세요.' : resultCode === 'K22' ? 'API 호출 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.' : '공공데이터포털 응답을 가져오지 못했습니다.';
+  console.error('Library API request failed:', message);
+  return NextResponse.json({ mode: 'error', message: userMessage }, { status });
+ }
 }
